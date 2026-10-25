@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/components/statusbadge.tsx","./src/views/auditlogsview.tsx","./src/views/customersview.tsx","./src/views/dashboardview.tsx","./src/views/licensesview.tsx","./src/views/productsplansview.tsx","./src/views/systemsettingsview.tsx"],"version":"5.6.3"}
