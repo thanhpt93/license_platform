@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -16,6 +16,7 @@ from app.crypto import (
     sign_license_payload,
     verify_license_envelope,
 )
+from app.features import ALL_SOFTWARE_FEATURES
 from app.models import (
     Customer,
     License,
@@ -173,6 +174,7 @@ def _create_signed_license_record(
     not_before_dt: datetime,
     duration_days: Optional[int],
     custom_limits: Optional[Dict[str, int]],
+    custom_features: Optional[List[str]] = None,
     notes: Optional[str],
 ) -> License:
     """
@@ -265,13 +267,24 @@ def _create_signed_license_record(
     else:
         limits_snapshot = default_limits
 
-    features_snapshot = sorted({str(f).strip() for f in (plan.features or []) if str(f).strip()})
+    # 4. Compute immutable feature entitlements snapshot
+    # At this phase, by default creating a license grants all software features
+    if custom_features is not None:
+        if not custom_features or "*" in custom_features:
+            features_snapshot = sorted(set(ALL_SOFTWARE_FEATURES))
+        else:
+            features_snapshot = sorted({str(f).strip() for f in custom_features if str(f).strip()})
+    elif plan.features and len(plan.features) > 0 and "*" not in plan.features:
+        features_snapshot = sorted({str(f).strip() for f in plan.features if str(f).strip()})
+    else:
+        # Defaults to all software features
+        features_snapshot = sorted(set(ALL_SOFTWARE_FEATURES))
 
-    # 4. Generate unique identifiers
+    # 5. Generate unique identifiers
     license_id = str(uuid.uuid4())
     license_number = generate_unique_license_number(db, now)
 
-    # 5. Build canonical payload
+    # 6. Build canonical payload
     payload: Dict[str, Any] = {
         "schema_version": PAYLOAD_SCHEMA_VERSION,
         "license_id": license_id,
@@ -290,7 +303,7 @@ def _create_signed_license_record(
         "key_id": key_id,
     }
 
-    # 6. Sign payload AND immediately verify signature before accepting issuance
+    # 7. Sign payload AND immediately verify signature before accepting issuance
     try:
         canonical_json_str, signature_b64, envelope = sign_license_payload(
             payload=payload,
@@ -313,7 +326,7 @@ def _create_signed_license_record(
             detail=f"License signing or post-signing verification failed: {exc}",
         ) from exc
 
-    # 7. Instantiate ORM record (persisted inside caller's transaction)
+    # 8. Instantiate ORM record (persisted inside caller's transaction)
     new_license = License(
         id=license_id,
         license_number=license_number,
@@ -386,6 +399,7 @@ def issue_new_license(
             not_before_dt=not_before_dt,
             duration_days=req.duration_days,
             custom_limits=custom_limits_dict,
+            custom_features=req.custom_features,
             notes=req.notes,
         )
         db.add(new_license)
@@ -472,6 +486,7 @@ def renew_existing_license(
             not_before_dt=now,
             duration_days=req.duration_days or plan.default_duration_days,
             custom_limits=previous_lic.limits_snapshot,
+            custom_features=previous_lic.features_snapshot,
             notes=req.notes or f"Renewal of {previous_lic.license_number}",
         )
         db.add(new_license)
@@ -561,6 +576,11 @@ def replace_existing_license(
         if req.custom_limits
         else (previous_lic.limits_snapshot if not req.plan_id else None)
     )
+    custom_features_list = (
+        req.custom_features
+        if req.custom_features is not None
+        else (previous_lic.features_snapshot if not req.plan_id else None)
+    )
 
     try:
         new_license = _create_signed_license_record(
@@ -572,6 +592,7 @@ def replace_existing_license(
             not_before_dt=now,
             duration_days=req.duration_days,
             custom_limits=custom_limits_dict,
+            custom_features=custom_features_list,
             notes=req.notes or f"Replacement for {previous_lic.license_number}",
         )
         db.add(new_license)

@@ -159,6 +159,36 @@ export interface VerifyArtifactResponse {
   verified_at: string;
 }
 
+export const ALL_SOFTWARE_FEATURES: string[] = [
+  '*',
+  'anomaly_detection',
+  'barcode_reader',
+  'blob_analysis',
+  'camera_calibration',
+  'contour_detection',
+  'deep_learning_ocr',
+  'ethercat_trigger_bridge',
+  'high_speed_acquisition',
+  'measurement_metrology',
+  'mqtt_publisher',
+  'multi_camera_sync',
+  'offline_simulator',
+  'pipeline_studio',
+  'plc_modbus_profinet',
+  'qr_reader',
+  'shape_analysis',
+  'spc_telemetry_export',
+  'surface_defect_detection',
+  'tcp_ip_stream',
+  'template_matching',
+];
+
+export function isAllFeatures(features?: string[] | null): boolean {
+  if (!features || features.length === 0) return true;
+  if (features.includes('*')) return true;
+  return features.length >= ALL_SOFTWARE_FEATURES.length - 1;
+}
+
 const TOKEN_STORAGE_KEY = 'nova_license_admin_token';
 
 export function getStoredToken(): string | null {

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.audit import record_audit_event
 from app.auth import get_current_user, require_roles
 from app.database import get_db
+from app.features import ALL_SOFTWARE_FEATURES
 from app.models import LicensePlan, Product, User
 from app.schemas import (
     LicensePlanCreateRequest,
@@ -23,6 +24,17 @@ def _to_plan_response(plan: LicensePlan) -> LicensePlanResponse:
         resp.product_code = plan.product.product_code
         resp.product_name = plan.product.product_name
     return resp
+
+
+@router.get("/features", response_model=List[str])
+def list_available_features(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns the comprehensive list of all software features supported by NOVA Platform.
+    At this stage, creating a license defaults to being granted all software features (*).
+    """
+    return ALL_SOFTWARE_FEATURES
 
 
 @router.get("/products", response_model=List[ProductResponse])

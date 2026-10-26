@@ -16,9 +16,11 @@ import {
   X,
 } from 'lucide-react';
 import {
+  ALL_SOFTWARE_FEATURES,
   apiRequest,
   Customer,
   downloadSignedLicenseFile,
+  isAllFeatures,
   LicensePlan,
   LicenseRecord,
   Product,
@@ -68,6 +70,7 @@ export function LicensesView({
   const [customMaxDevices, setCustomMaxDevices] = useState<number>(1);
   const [customMaxConcurrent, setCustomMaxConcurrent] = useState<number>(4);
   const [customTotalQuota, setCustomTotalQuota] = useState<number>(-1);
+  const [allFeaturesEnabled, setAllFeaturesEnabled] = useState<boolean>(true);
   const [issueNotes, setIssueNotes] = useState<string>('');
   const [wizardError, setWizardError] = useState<string | null>(null);
   const [issuing, setIssuing] = useState<boolean>(false);
@@ -138,6 +141,7 @@ export function LicensesView({
     setWizardError(null);
     setIssuedResult(null);
     setWizardStep(1);
+    setAllFeaturesEnabled(true);
     setShowIssueWizard(true);
     try {
       const [custRes, prodRes, planRes] = await Promise.all([
@@ -195,6 +199,9 @@ export function LicensesView({
         plan_id: selectedPlanId,
         notes: issueNotes || null,
       };
+      if (allFeaturesEnabled) {
+        payload.custom_features = ALL_SOFTWARE_FEATURES;
+      }
       if (currentWizardPlan.license_type === 'SUBSCRIPTION') {
         payload.duration_days = Number(customDurationDays);
       }
@@ -504,7 +511,14 @@ export function LicensesView({
           {/* Entitlements: Features & Limits */}
           <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/60 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Signed Feature Entitlements</h4>
+              <div className="flex items-center gap-2 mb-2">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase">Signed Feature Entitlements</h4>
+                {isAllFeatures(activeLicense.features_snapshot) && (
+                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded text-[11px] font-semibold">
+                    ★ All Software Features (*)
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {activeLicense.features_snapshot.map((f) => (
                   <span
@@ -812,7 +826,7 @@ export function LicensesView({
           </div>
         ) : licenses.length === 0 ? (
           <div className="p-10 text-center text-slate-500 text-sm">
-            No issued licenses found. Click "Issue License" to generate and sign a new license.
+            No issued licenses found. Click &quot;Issue License&quot; to generate and sign a new license.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1080,6 +1094,33 @@ export function LicensesView({
                         </div>
                       )}
 
+                      {/* Feature Entitlements Configuration */}
+                      <div className="bg-slate-50 p-4 rounded border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-700 uppercase">
+                            6. Feature Entitlements
+                          </span>
+                          <label className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={allFeaturesEnabled}
+                              onChange={(e) => setAllFeaturesEnabled(e.target.checked)}
+                              className="rounded text-blue-600"
+                            />
+                            Sử dụng tất cả feature trong phần mềm (Mặc định)
+                          </label>
+                        </div>
+                        {allFeaturesEnabled ? (
+                          <div className="text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded border border-emerald-200">
+                            ★ <strong>Tất cả tính năng trong phần mềm ({ALL_SOFTWARE_FEATURES.length - 1} modules)</strong> được cấp quyền sử dụng theo mặc định ở giai đoạn này.
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-600 bg-white p-2.5 rounded border border-slate-200">
+                            Cấp quyền theo danh sách module của gói kế hoạch đã chọn ({currentWizardPlan?.features?.length || 0} tính năng).
+                          </div>
+                        )}
+                      </div>
+
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
                           Internal Administrative Notes (Not included in signed payload)
@@ -1139,8 +1180,17 @@ export function LicensesView({
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block">Features ({currentWizardPlan.features.length})</span>
-                      <span className="font-mono">{currentWizardPlan.features.join(', ')}</span>
+                      <span className="text-slate-500 block">Feature Entitlements</span>
+                      {allFeaturesEnabled || isAllFeatures(currentWizardPlan.features) ? (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded text-xs font-semibold">
+                            ★ All Software Features (*)
+                          </span>
+                          <span className="text-slate-500 text-xs ml-2">Toàn bộ tính năng ({ALL_SOFTWARE_FEATURES.length - 1} modules)</span>
+                        </div>
+                      ) : (
+                        <span className="font-mono text-xs">{currentWizardPlan.features.join(', ')}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1242,7 +1292,7 @@ export function LicensesView({
             <form onSubmit={handleVerifyStandaloneJson} className="p-6 space-y-4 text-sm">
               <p className="text-xs text-slate-600">
                 Paste the contents of any downloaded <code>.novalic.json</code> file below to test signature
-                verification and tamper detection against the server's registered Ed25519 public keys.
+                verification and tamper detection against the server&apos;s registered Ed25519 public keys.
               </p>
               <textarea
                 rows={8}

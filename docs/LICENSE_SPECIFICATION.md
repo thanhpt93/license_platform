@@ -30,11 +30,27 @@ A downloaded NOVA license artifact is a UTF-8 encoded JSON document with the fol
     "not_before": "2026-10-25T15:00:00Z",
     "expires_at": "2027-10-25T15:00:00Z",
     "features": [
+      "*",
+      "anomaly_detection",
+      "barcode_reader",
+      "blob_analysis",
+      "camera_calibration",
+      "contour_detection",
       "deep_learning_ocr",
+      "ethercat_trigger_bridge",
       "high_speed_acquisition",
+      "measurement_metrology",
+      "mqtt_publisher",
       "multi_camera_sync",
+      "offline_simulator",
+      "pipeline_studio",
       "plc_modbus_profinet",
-      "surface_defect_detection"
+      "qr_reader",
+      "shape_analysis",
+      "spc_telemetry_export",
+      "surface_defect_detection",
+      "tcp_ip_stream",
+      "template_matching"
     ],
     "limits": {
       "max_devices": 2,
@@ -100,6 +116,12 @@ To avoid ambiguous zero semantics, all numeric limits in `limits` (`max_devices`
 - **`> 0` (Positive Integer)**: **Exact Maximum Cap** enforced by the runtime.
 
 Negative integers other than `-1` and floating-point numbers are invalid and rejected by validation.
+
+### 4.3 Feature Entitlement Semantics (Default All-Features Access)
+In the current phase, creating a license or commercial plan defaults to granting access to **all software features** across the platform:
+- The signed `features` array includes the universal wildcard `"*"` alongside the full canonical list of platform modules (`anomaly_detection`, `barcode_reader`, `blob_analysis`, `camera_calibration`, `contour_detection`, `deep_learning_ocr`, `ethercat_trigger_bridge`, `high_speed_acquisition`, `measurement_metrology`, `mqtt_publisher`, `multi_camera_sync`, `offline_simulator`, `pipeline_studio`, `plc_modbus_profinet`, `qr_reader`, `shape_analysis`, `spc_telemetry_export`, `surface_defect_detection`, `tcp_ip_stream`, `template_matching`).
+- Downstream software verifiers can evaluate either `if "*" in features` or test for a specific module ID (`if feature_id in features`), both of which evaluate to authorized access.
+- If a restricted subset of features is explicitly specified for custom plans, only the chosen features are signed into the license snapshot.
 
 ---
 

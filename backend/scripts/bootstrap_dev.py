@@ -27,6 +27,7 @@ from app.audit import record_audit_event  # noqa: E402
 from app.auth import hash_password  # noqa: E402
 from app.crypto import compute_public_key_fingerprint, generate_ed25519_keypair_pem  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
+from app.features import get_default_features  # noqa: E402
 from app.models import Customer, LicensePlan, Product, SigningKey, User  # noqa: E402
 
 
@@ -176,7 +177,8 @@ def main():
             db.flush()
             print("[Bootstrap] Registered product: NOVA-MVP (NOVA Machine Vision Platform)")
 
-        # 5. Initial Commercial License Plans
+        # 5. Initial Commercial License Plans (Default grants all software features at this stage)
+        all_features = get_default_features()
         default_plans = [
             {
                 "plan_code": "NOVA-DEV-SUB-1Y",
@@ -185,13 +187,7 @@ def main():
                 "description": "Full pipeline authoring, simulation, and camera calibration suite for vision engineers.",
                 "license_type": "SUBSCRIPTION",
                 "default_duration_days": 365,
-                "features": [
-                    "pipeline_studio",
-                    "offline_simulator",
-                    "camera_calibration",
-                    "deep_learning_ocr",
-                    "surface_defect_detection",
-                ],
+                "features": all_features,
                 "max_devices": 2,
                 "max_concurrent_inspections": 2,
                 "total_inspection_quota": -1,
@@ -205,14 +201,7 @@ def main():
                 "description": "High-speed runtime execution license for factory floor inspection stations.",
                 "license_type": "SUBSCRIPTION",
                 "default_duration_days": 365,
-                "features": [
-                    "high_speed_acquisition",
-                    "multi_camera_sync",
-                    "plc_modbus_profinet",
-                    "deep_learning_ocr",
-                    "surface_defect_detection",
-                    "spc_telemetry_export",
-                ],
+                "features": all_features,
                 "max_devices": 1,
                 "max_concurrent_inspections": 4,
                 "total_inspection_quota": -1,
@@ -226,15 +215,7 @@ def main():
                 "description": "Perpetual factory station license with unlimited runtime duration and multi-line support.",
                 "license_type": "PERPETUAL",
                 "default_duration_days": None,
-                "features": [
-                    "high_speed_acquisition",
-                    "multi_camera_sync",
-                    "plc_modbus_profinet",
-                    "deep_learning_ocr",
-                    "surface_defect_detection",
-                    "spc_telemetry_export",
-                    " EtherCAT_trigger_bridge".strip(),
-                ],
+                "features": all_features,
                 "max_devices": 4,
                 "max_concurrent_inspections": 8,
                 "total_inspection_quota": -1,

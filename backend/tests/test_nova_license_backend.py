@@ -668,3 +668,65 @@ def test_key_rotation_and_lifecycle_workflows(client: TestClient, test_db_sessio
         "LICENSE_REVOKED",
     ):
         assert expected_action in actions_logged
+
+
+def test_all_software_features_default_entitlement(client):
+    from app.features import ALL_SOFTWARE_FEATURES, is_all_features_entitlement
+
+    headers = get_auth_headers(client, "test_admin", "StrongAdminPass!2026")
+    # 1. GET /api/features endpoint
+    resp = client.get("/api/features", headers=headers)
+    assert resp.status_code == 200
+    features = resp.json()
+    assert "*" in features
+    assert "deep_learning_ocr" in features
+
+    # 2. Plan creation with empty features defaults to all software features
+    products = client.get("/api/products", headers=headers).json()
+    product_id = products[0]["id"]
+    p_resp = client.post(
+        "/api/license-plans",
+        headers=headers,
+        json={
+            "plan_code": "TEST-ALL-FEAT-PLAN",
+            "plan_name": "Test All Features Default",
+            "product_id": product_id,
+            "edition": "production",
+            "license_type": "PERPETUAL",
+            "features": [],
+            "max_devices": 1,
+            "max_concurrent_inspections": 1,
+            "total_inspection_quota": -1,
+        },
+    )
+    assert p_resp.status_code == 201
+    plan_data = p_resp.json()
+    assert "*" in plan_data["features"]
+    assert is_all_features_entitlement(plan_data["features"])
+
+    # 3. Issuing license inherits all software features by default
+    cust_resp = client.post(
+        "/api/customers",
+        headers=headers,
+        json={
+            "customer_code": "CUST-ALL-FEAT",
+            "company_name": "All Features Factory",
+            "contact_person": "Operator",
+            "contact_email": "op@factory.com",
+        },
+    )
+    cust_id = cust_resp.json()["id"]
+
+    lic_resp = client.post(
+        "/api/licenses",
+        headers=headers,
+        json={
+            "customer_id": cust_id,
+            "plan_id": plan_data["id"],
+        },
+    )
+    assert lic_resp.status_code == 201
+    lic_data = lic_resp.json()
+    assert "*" in lic_data["features_snapshot"]
+    assert set(ALL_SOFTWARE_FEATURES).issubset(set(lic_data["features_snapshot"]))
+    assert lic_data["signature_verified"] is True

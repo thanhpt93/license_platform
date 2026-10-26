@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.features import ALL_SOFTWARE_FEATURES, get_default_features
+
 
 # --- Auth & Users ---
 
@@ -144,7 +146,7 @@ class LicensePlanCreateRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     license_type: Literal["SUBSCRIPTION", "PERPETUAL"]
     default_duration_days: Optional[int] = Field(None)
-    features: List[str] = Field(default_factory=list)
+    features: List[str] = Field(default_factory=get_default_features)
     max_devices: int = Field(default=1)
     max_concurrent_inspections: int = Field(default=1)
     total_inspection_quota: int = Field(default=-1)
@@ -177,8 +179,10 @@ class LicensePlanCreateRequest(BaseModel):
     @field_validator("features")
     @classmethod
     def normalize_features(cls, v: List[str]) -> List[str]:
+        if not v or "*" in v or "all" in [str(f).lower() for f in v]:
+            return list(ALL_SOFTWARE_FEATURES)
         cleaned = sorted({f.strip() for f in v if f and f.strip()})
-        return cleaned
+        return cleaned or list(ALL_SOFTWARE_FEATURES)
 
     @model_validator(mode="after")
     def check_duration_by_type(self) -> "LicensePlanCreateRequest":
@@ -227,7 +231,10 @@ class LicensePlanUpdateRequest(BaseModel):
     @classmethod
     def normalize_features(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         if v is not None:
-            return sorted({f.strip() for f in v if f and f.strip()})
+            if not v or "*" in v or "all" in [str(f).lower() for f in v]:
+                return list(ALL_SOFTWARE_FEATURES)
+            cleaned = sorted({f.strip() for f in v if f and f.strip()})
+            return cleaned or list(ALL_SOFTWARE_FEATURES)
         return v
 
 
@@ -284,7 +291,18 @@ class LicenseIssueRequest(BaseModel):
     not_before: Optional[datetime] = None
     duration_days: Optional[int] = Field(None, gt=0, le=36500)
     custom_limits: Optional[LicenseLimitsSchema] = None
+    custom_features: Optional[List[str]] = None
     notes: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("custom_features")
+    @classmethod
+    def normalize_custom_features(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        if v is not None:
+            if not v or "*" in v or "all" in [str(f).lower() for f in v]:
+                return list(ALL_SOFTWARE_FEATURES)
+            cleaned = sorted({f.strip() for f in v if f and f.strip()})
+            return cleaned or list(ALL_SOFTWARE_FEATURES)
+        return v
 
 
 class LicenseRenewRequest(BaseModel):
@@ -297,8 +315,19 @@ class LicenseReplaceRequest(BaseModel):
     plan_id: Optional[str] = None
     duration_days: Optional[int] = Field(None, gt=0, le=36500)
     custom_limits: Optional[LicenseLimitsSchema] = None
+    custom_features: Optional[List[str]] = None
     reason: str = Field(..., min_length=3, max_length=1000)
     notes: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("custom_features")
+    @classmethod
+    def normalize_custom_features(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        if v is not None:
+            if not v or "*" in v or "all" in [str(f).lower() for f in v]:
+                return list(ALL_SOFTWARE_FEATURES)
+            cleaned = sorted({f.strip() for f in v if f and f.strip()})
+            return cleaned or list(ALL_SOFTWARE_FEATURES)
+        return v
 
 
 class LicenseStatusActionRequest(BaseModel):

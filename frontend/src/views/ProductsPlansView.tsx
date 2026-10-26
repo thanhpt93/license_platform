@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Edit3, Package, Layers, X, RefreshCw } from 'lucide-react';
-import { apiRequest, LicensePlan, Product } from '../api';
+import { ALL_SOFTWARE_FEATURES, apiRequest, isAllFeatures, LicensePlan, Product } from '../api';
 import { StatusBadge, formatLimitValue } from '../components/StatusBadge';
 
 interface ProductsPlansViewProps {
@@ -30,9 +30,8 @@ export function ProductsPlansView({ canWrite }: ProductsPlansViewProps) {
   const [edition, setEdition] = useState<'developer' | 'production'>('production');
   const [licenseType, setLicenseType] = useState<'SUBSCRIPTION' | 'PERPETUAL'>('SUBSCRIPTION');
   const [defaultDurationDays, setDefaultDurationDays] = useState<number>(365);
-  const [featuresText, setFeaturesText] = useState<string>(
-    'high_speed_acquisition, multi_camera_sync, plc_modbus_profinet, deep_learning_ocr, surface_defect_detection'
-  );
+  const [allFeaturesEnabled, setAllFeaturesEnabled] = useState<boolean>(true);
+  const [featuresText, setFeaturesText] = useState<string>(ALL_SOFTWARE_FEATURES.join(', '));
   const [maxDevices, setMaxDevices] = useState<number>(1);
   const [maxConcurrentInspections, setMaxConcurrentInspections] = useState<number>(4);
   const [totalInspectionQuota, setTotalInspectionQuota] = useState<number>(-1);
@@ -75,9 +74,8 @@ export function ProductsPlansView({ canWrite }: ProductsPlansViewProps) {
     setEdition('production');
     setLicenseType('SUBSCRIPTION');
     setDefaultDurationDays(365);
-    setFeaturesText(
-      'high_speed_acquisition, multi_camera_sync, plc_modbus_profinet, deep_learning_ocr, surface_defect_detection'
-    );
+    setAllFeaturesEnabled(true);
+    setFeaturesText(ALL_SOFTWARE_FEATURES.join(', '));
     setMaxDevices(1);
     setMaxConcurrentInspections(4);
     setTotalInspectionQuota(-1);
@@ -97,7 +95,9 @@ export function ProductsPlansView({ canWrite }: ProductsPlansViewProps) {
     setEdition(p.edition);
     setLicenseType(p.license_type);
     setDefaultDurationDays(p.default_duration_days || 365);
-    setFeaturesText((p.features || []).join(', '));
+    const isAll = isAllFeatures(p.features);
+    setAllFeaturesEnabled(isAll);
+    setFeaturesText(isAll ? ALL_SOFTWARE_FEATURES.join(', ') : (p.features || []).join(', '));
     setMaxDevices(p.max_devices);
     setMaxConcurrentInspections(p.max_concurrent_inspections);
     setTotalInspectionQuota(p.total_inspection_quota);
@@ -136,10 +136,12 @@ export function ProductsPlansView({ canWrite }: ProductsPlansViewProps) {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
-    const featuresList = featuresText
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const featuresList = allFeaturesEnabled
+      ? ALL_SOFTWARE_FEATURES
+      : featuresText
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
 
     try {
       if (editingPlan) {
@@ -318,16 +320,27 @@ export function ProductsPlansView({ canWrite }: ProductsPlansViewProps) {
                     <div>Quota: {formatLimitValue(p.total_inspection_quota)}</div>
                   </td>
                   <td className="py-3 px-4 max-w-xs">
-                    <div className="flex flex-wrap gap-1">
-                      {p.features.map((f) => (
-                        <span
-                          key={f}
-                          className="px-2 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded text-xs font-mono"
-                        >
-                          {f}
+                    {isAllFeatures(p.features) ? (
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded text-xs font-semibold">
+                          ★ All Software Features (*)
                         </span>
-                      ))}
-                    </div>
+                        <div className="text-[11px] text-slate-500">
+                          Toàn bộ tính năng trong phần mềm ({ALL_SOFTWARE_FEATURES.length - 1} modules)
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {p.features.map((f) => (
+                          <span
+                            key={f}
+                            className="px-2 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded text-xs font-mono"
+                          >
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <StatusBadge status={p.status} />
@@ -558,16 +571,53 @@ export function ProductsPlansView({ canWrite }: ProductsPlansViewProps) {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Enabled Features (comma-separated identifiers)
-                </label>
-                <input
-                  type="text"
-                  value={featuresText}
-                  onChange={(e) => setFeaturesText(e.target.value)}
-                  className="w-full border border-slate-300 rounded px-3 py-2 font-mono text-xs"
-                />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase">
+                    Feature Entitlements
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-semibold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allFeaturesEnabled}
+                      onChange={(e) => {
+                        setAllFeaturesEnabled(e.target.checked);
+                        if (e.target.checked) {
+                          setFeaturesText(ALL_SOFTWARE_FEATURES.join(', '));
+                        }
+                      }}
+                      className="rounded text-blue-600"
+                    />
+                    Cấp quyền tất cả feature trong phần mềm (Mặc định)
+                  </label>
+                </div>
+                {allFeaturesEnabled ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-900 flex items-center justify-between">
+                    <span>
+                      ★ <strong>Đang chọn: Tất cả {ALL_SOFTWARE_FEATURES.length - 1} features</strong> (ký tự đại diện <code>*</code> và danh sách toàn bộ module vision/inspections).
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAllFeaturesEnabled(false)}
+                      className="text-xs text-emerald-800 underline hover:text-emerald-950 font-medium"
+                    >
+                      Tùy chỉnh subset
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="text"
+                      value={featuresText}
+                      onChange={(e) => setFeaturesText(e.target.value)}
+                      placeholder="e.g. high_speed_acquisition, deep_learning_ocr"
+                      className="w-full border border-slate-300 rounded px-3 py-2 font-mono text-xs"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Nhập danh sách mã tính năng cách nhau bởi dấu phẩy, hoặc bật lại tùy chọn &quot;Cấp quyền tất cả feature&quot;.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-4 items-center">
